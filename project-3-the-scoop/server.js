@@ -1,8 +1,13 @@
+const js_yaml = require('js-yaml');
+const fs = require('fs');
+
 // database is let instead of const to allow us to modify it in test.js
 let database = {
   users: {},
   articles: {},
-  nextArticleId: 1
+  nextArticleId: 1,
+  comments: {},
+  nextCommentId: 1
 };
 
 const routes = {
@@ -26,8 +31,151 @@ const routes = {
   },
   '/articles/:id/downvote': {
     'PUT': downvoteArticle
-  }
+  },
+  '/comments': {
+    'POST': createComment
+  },
+  '/comments/:id': {
+    'PUT': updateComment,
+    'DELETE': deleteComment
+  },
+  '/comments/:id/upvote': {
+    'PUT': upvoteComment
+  },
+  '/comments/:id/downvote': {
+    'PUT': downvoteComment
+  },
 };
+
+function createComment (url, request) {
+  const requestComment = request.body && request.body.comment;
+  const response = {};
+  
+  if (
+      requestComment &&
+      requestComment.body &&
+      database.users[requestComment.username] &&
+      database.articles[requestComment.articleId]
+    ){
+      
+      const comment = {
+        id: database.nextCommentId++,
+        body: requestComment.body,
+        username: requestComment.username,
+        articleId: requestComment.articleId,
+        upvotedBy: [],
+        downvotedBy: []
+      };
+      
+      database.comments[comment.id] = comment;
+      database.users[comment.username].commentIds.push(comment.id);
+      database.articles[comment.articleId].commentIds.push(comment.id);
+      
+      response.body = {comment: comment};
+      response.status = 201;
+  } else {
+    response.status = 400;
+  }
+  saveDatabase();
+  return response;
+}
+
+function updateComment (url, request) {
+  const requestComment = request.body && request.body.comment;
+  const id = Number(url.split('/').filter(seg => seg)[1]);
+  const response =  {};
+  
+  if (
+    request.body &&
+    request.body.comment && 
+    id && 
+    requestComment.body
+    ) {
+    if (database.comments[id]) { // comment exists
+      database.comments[id].body = requestComment.body;
+      
+      response.body = { comment: database.comments[id] };
+      response.status = 200;
+      
+    } else {                    // comment dne
+      response.status = 404;
+    }
+  } else {
+    response.status = 400;
+  }
+  saveDatabase();
+  return response;
+}
+
+function deleteComment (url, request) {
+  const id = Number(url.split('/').filter(seg => seg)[1]);
+  const response =  {};
+  
+  if (id && database.comments[id]) {
+    var articleID = database.comments[id].articleId;
+    var userKey = database.comments[id].username;
+    
+    var index = database.users[userKey].commentIds.indexOf(id);
+    database.users[userKey].commentIds.splice(index, 1);  
+    //database.users[userKey].commentIds[index] = null;
+    
+    index = database.articles[articleID].commentIds.indexOf(id);
+    database.articles[id].commentIds.splice(index, 1);
+    //database.articles[id].commentIds[index] = null;
+    
+    database.comments[id] = null;
+    
+    response.status = 204;
+    
+  } else {
+    response.status = 404; // doc says 400, test says 404
+  }
+  
+  saveDatabase();
+  return response;
+}
+
+function upvoteComment (url, request) {
+  const id = Number(url.split('/').filter(segment => segment)[1]);
+  const username = request.body && request.body.username;
+  let savedComment = database.comments[id];
+  const response = {};
+  
+  if (database.users[username] && id && savedComment) {
+    //database.comments[id] = upvote(database.comments[id], user);
+    savedComment = upvote(savedComment, username);
+    
+    response.body = {comment: database.comments[id]};
+    response.status = 200;
+  } else {
+    response.status = 400;
+  }
+  
+  saveDatabase();
+  return response;
+  
+}
+
+function downvoteComment (url, request) {
+  const id = Number(url.split('/').filter(segment => segment)[1]);
+  const username = request.body && request.body.username;
+  let savedComment = database.comments[id];
+  const response = {};
+  
+  if (database.users[username] && id && savedComment) {
+    //database.comments[id] = upvote(database.comments[id], user);
+    savedComment = downvote(savedComment, username);
+    
+    response.body = {comment: database.comments[id]};
+    response.status = 200;
+  } else {
+    response.status = 400;
+  }
+  
+  saveDatabase();
+  return response;
+  
+}
 
 function getUser(url, request) {
   const username = url.split('/').filter(segment => segment)[1];
@@ -75,6 +223,7 @@ function getOrCreateUser(url, request) {
     response.status = 400;
   }
 
+  saveDatabase();
   return response;
 }
 
@@ -137,6 +286,7 @@ function createArticle(url, request) {
     response.status = 400;
   }
 
+  saveDatabase();
   return response;
 }
 
@@ -158,6 +308,7 @@ function updateArticle(url, request) {
     response.status = 200;
   }
 
+  saveDatabase();
   return response;
 }
 
@@ -181,6 +332,7 @@ function deleteArticle(url, request) {
     response.status = 400;
   }
 
+  saveDatabase();
   return response;
 }
 
@@ -199,6 +351,7 @@ function upvoteArticle(url, request) {
     response.status = 400;
   }
 
+  saveDatabase();
   return response;
 }
 
@@ -217,6 +370,7 @@ function downvoteArticle(url, request) {
     response.status = 400;
   }
 
+  saveDatabase();
   return response;
 }
 
@@ -238,6 +392,30 @@ function downvote(item, username) {
     item.downvotedBy.push(username);
   }
   return item;
+}
+
+function loadDatabase() {
+  try {
+    var file_yaml = fs.readFileSync('database.yml', 'utf8');
+    var db_json = js_yaml.safeLoad(file_yaml);
+    console.log(db_json);
+    return db_json;
+  } catch (e) {
+    console.log(e)
+    return null;
+  }
+}
+
+function saveDatabase() {
+  try {
+    var db_yaml = js_yaml.safeDump(database);
+    fs.writeFile('database.yml', db_yaml, (err) => {
+      if (err) throw err;
+      console.log("Database saved!")
+    })
+  } catch (e) {
+    console.log(e);
+  }
 }
 
 // Write all code above this line.
