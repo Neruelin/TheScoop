@@ -1,3 +1,5 @@
+// Last editted by Tyler McFadden for Codecademy Coach Take-Home Project
+// modules to parse yaml and read-write to filesystem.
 const js_yaml = require('js-yaml');
 const fs = require('fs');
 
@@ -57,7 +59,6 @@ function createComment (url, request) {
       database.users[requestComment.username] &&
       database.articles[requestComment.articleId]
     ){
-      
       const comment = {
         id: database.nextCommentId++,
         body: requestComment.body,
@@ -85,19 +86,14 @@ function updateComment (url, request) {
   const id = Number(url.split('/').filter(seg => seg)[1]);
   const response =  {};
   
-  if (
-    request.body &&
-    request.body.comment && 
-    id && 
-    requestComment.body
-    ) {
-    if (database.comments[id]) { // comment exists
+  if (request.body && request.body.comment && id && requestComment.body) {
+    if (database.comments[id]) { 
       database.comments[id].body = requestComment.body;
-      
+
       response.body = { comment: database.comments[id] };
       response.status = 200;
       
-    } else {                    // comment dne
+    } else {                    
       response.status = 404;
     }
   } else {
@@ -117,20 +113,15 @@ function deleteComment (url, request) {
     
     var index = database.users[userKey].commentIds.indexOf(id);
     database.users[userKey].commentIds.splice(index, 1);  
-    //database.users[userKey].commentIds[index] = null;
     
     index = database.articles[articleID].commentIds.indexOf(id);
     database.articles[id].commentIds.splice(index, 1);
-    //database.articles[id].commentIds[index] = null;
-    
     database.comments[id] = null;
     
     response.status = 204;
-    
   } else {
     response.status = 404; // doc says 400, test says 404
   }
-  
   saveDatabase();
   return response;
 }
@@ -142,7 +133,6 @@ function upvoteComment (url, request) {
   const response = {};
   
   if (database.users[username] && id && savedComment) {
-    //database.comments[id] = upvote(database.comments[id], user);
     savedComment = upvote(savedComment, username);
     
     response.body = {comment: database.comments[id]};
@@ -150,10 +140,8 @@ function upvoteComment (url, request) {
   } else {
     response.status = 400;
   }
-  
   saveDatabase();
   return response;
-  
 }
 
 function downvoteComment (url, request) {
@@ -163,7 +151,6 @@ function downvoteComment (url, request) {
   const response = {};
   
   if (database.users[username] && id && savedComment) {
-    //database.comments[id] = upvote(database.comments[id], user);
     savedComment = downvote(savedComment, username);
     
     response.body = {comment: database.comments[id]};
@@ -171,10 +158,8 @@ function downvoteComment (url, request) {
   } else {
     response.status = 400;
   }
-  
   saveDatabase();
   return response;
-  
 }
 
 function getUser(url, request) {
@@ -198,7 +183,6 @@ function getUser(url, request) {
   } else {
     response.status = 400;
   }
-
   return response;
 }
 
@@ -222,7 +206,6 @@ function getOrCreateUser(url, request) {
   } else {
     response.status = 400;
   }
-
   saveDatabase();
   return response;
 }
@@ -237,7 +220,6 @@ function getArticles(url, request) {
         .filter(article => article)
         .sort((article1, article2) => article2.id - article1.id)
   };
-
   return response;
 }
 
@@ -257,7 +239,6 @@ function getArticle(url, request) {
   } else {
     response.status = 400;
   }
-
   return response;
 }
 
@@ -285,7 +266,6 @@ function createArticle(url, request) {
   } else {
     response.status = 400;
   }
-
   saveDatabase();
   return response;
 }
@@ -307,7 +287,6 @@ function updateArticle(url, request) {
     response.body = {article: savedArticle};
     response.status = 200;
   }
-
   saveDatabase();
   return response;
 }
@@ -331,7 +310,6 @@ function deleteArticle(url, request) {
   } else {
     response.status = 400;
   }
-
   saveDatabase();
   return response;
 }
@@ -350,7 +328,6 @@ function upvoteArticle(url, request) {
   } else {
     response.status = 400;
   }
-
   saveDatabase();
   return response;
 }
@@ -369,7 +346,6 @@ function downvoteArticle(url, request) {
   } else {
     response.status = 400;
   }
-
   saveDatabase();
   return response;
 }
